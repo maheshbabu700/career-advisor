@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Career Advisor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif;}
+
+body{
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+padding:40px 0;
+background:linear-gradient(-45deg,#4e73df,#1cc88a,#36b9cc,#858796);
+background-size:400% 400%;
+animation:gradientMove 10s ease infinite;
+}
+
+@keyframes gradientMove{
+0%{background-position:0% 50%;}
+50%{background-position:100% 50%;}
+100%{background-position:0% 50%;}
+}
+
+.container{
+width:620px;
+padding:40px;
+background:rgba(255,255,255,0.95);
+border-radius:20px;
+box-shadow:0 25px 50px rgba(0,0,0,0.25);
+}
+
+h2{text-align:center;margin-bottom:20px;color:#2e59d9;}
+
+.upload-box{
+border:2px dashed #4e73df;
+padding:20px;
+border-radius:12px;
+margin-bottom:20px;
+background:#f8f9fc;
+text-align:center;
+}
+
+/* 🔵 Circular Photo Preview */
+.preview-wrapper{
+position:relative;
+width:150px;
+height:150px;
+margin:0 auto 10px;
+}
+
+.preview-wrapper img{
+width:150px;
+height:150px;
+border-radius:50%;
+object-fit:cover;
+border:3px solid #4e73df;
+}
+
+.remove-btn{
+position:absolute;
+top:-8px;
+right:-8px;
+background:#ff4d4d;
+color:white;
+border:none;
+border-radius:50%;
+width:26px;
+height:26px;
+cursor:pointer;
+font-size:14px;
+}
+
+.hidden{display:none;}
+
+#resumeName{
+margin-top:8px;
+font-size:14px;
+color:#333;
+}
+
+button{
+width:100%;
+padding:14px;
+border-radius:12px;
+border:none;
+font-weight:600;
+font-size:16px;
+background:linear-gradient(90deg,#4e73df,#1cc88a);
+color:white;
+cursor:pointer;
+margin-top:10px;
+}
+
+#results{
+margin-top:25px;
+padding:25px;
+border-radius:15px;
+background:#edf2ff;
+display:none;
+border:1px solid #d1d3e2;
+margin-bottom:50px;
+}
+
+#results canvas{
+max-width:100%;
+height:250px !important;
+}
+
+.pdf-export-mode{
+font-size:12px!important;
+line-height:1.6!important;
+background:white!important;
+color:black!important;
+padding:30px!important;
+border:none!important;
+}
+
+.pdf-export-mode h3,.pdf-export-mode p,.pdf-export-mode strong{
+color:#000!important;
+}
+
+.page-break{page-break-before:always;}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h2>Career Advisor Upload</h2>
+
+<form id="uploadForm">
+
+<!-- 🔵 PHOTO PREVIEW -->
+<div class="upload-box">
+<label>Upload Profile Photo</label>
+
+<div class="preview-wrapper">
+<img id="photoPreview" src="https://via.placeholder.com/150">
+<button type="button" id="removePhotoBtn" class="remove-btn hidden">✖</button>
+</div>
+
+<input type="file" id="profile_image" accept="image/*" required>
+</div>
+
+<!-- 📄 RESUME -->
+<div class="upload-box">
+<label>Upload Resume (PDF)</label>
+<input type="file" id="resume" accept=".pdf" required>
+<p id="resumeName"></p>
+<button type="button" id="removeResumeBtn" class="remove-btn hidden">✖</button>
+</div>
+
+<button type="submit">Analyze Profile</button>
+</form>
+
+<!-- RESULTS -->
+<div id="results">
+<h2 style="text-align:center;margin-bottom:20px;">AI Career Advisor Report</h2>
+
+<button id="downloadBtn" style="margin-bottom:20px;background:#2e59d9;">
+📥 Download Report (PDF)
+</button>
+
+<h3>Analysis Results:</h3>
+
+<div id="statusText"></div>
+<div id="careerText"></div>
+<div id="personalityText"></div>
+
+<div class="page-break"></div>
+
+<h3>📊 Skill Distribution</h3>
+<canvas id="skillsChart"></canvas>
+
+<h3>🎯 Career Match Scores</h3>
+<canvas id="careerChart"></canvas>
+
+<p id="missingSkillsText"></p>
+<div id="adviceText"></div>
+</div>
+</div>
+
+<script>
+let skillsChartInstance;
+let careerChartInstance;
+
+const photoInput=document.getElementById("profile_image");
+const photoPreview=document.getElementById("photoPreview");
+const removePhotoBtn=document.getElementById("removePhotoBtn");
+
+const resumeInput=document.getElementById("resume");
+const resumeName=document.getElementById("resumeName");
+const removeResumeBtn=document.getElementById("removeResumeBtn");
+
+/* 🔵 PHOTO PREVIEW */
+photoInput.addEventListener("change",function(){
+const file=this.files[0];
+if(file){
+const reader=new FileReader();
+reader.onload=e=>{
+photoPreview.src=e.target.result;
+removePhotoBtn.classList.remove("hidden");
+};
+reader.readAsDataURL(file);
+}
+});
+
+removePhotoBtn.onclick=()=>{
+photoPreview.src="https://via.placeholder.com/150";
+photoInput.value="";
+removePhotoBtn.classList.add("hidden");
+};
+
+/* 📄 RESUME PREVIEW */
+resumeInput.addEventListener("change",function(){
+if(this.files.length>0){
+resumeName.textContent=this.files[0].name;
+removeResumeBtn.classList.remove("hidden");
+}
+});
+
+removeResumeBtn.onclick=()=>{
+resumeInput.value="";
+resumeName.textContent="";
+removeResumeBtn.classList.add("hidden");
+};
+
+/* 🚀 FORM SUBMIT */
+document.getElementById('uploadForm').onsubmit=async(e)=>{
+e.preventDefault();
+
+const formData=new FormData();
+formData.append('resume',resumeInput.files[0]);
+formData.append('profile_image',photoInput.files[0]);
+
+const response=await fetch('/analyze',{method:'POST',body:formData});
+const result=await response.json();
+
+if(result.status==="success"){
+document.getElementById('results').style.display='block';
+
+/* TEXT OUTPUT */
+document.getElementById('statusText').innerHTML=
+`<strong>Skills Found:</strong> ${Object.entries(result.skill_counts).map(([s,c])=>`${s} (${c})`).join(", ")}`;
+
+document.getElementById('careerText').innerHTML=
+`<strong>Suggested Career:</strong> ${result.suggested_career}<br>
+<strong>Career Match Scores:</strong> ${Object.entries(result.career_scores).map(([c,s])=>`${c} (${s}%)`).join(", ")}`;
+
+document.getElementById('personalityText').innerHTML=
+`<strong>Personality Traits:</strong> ${(result.personality_traits||[]).join(", ")}`;
+
+document.getElementById('missingSkillsText').innerHTML=
+`<strong>Missing Skills for ${result.suggested_career}:</strong> ${(result.missing_skills||[]).join(", ")}`;
+
+document.getElementById('adviceText').innerHTML=
+`<strong>Career Advice:</strong><ul>${(result.advice||[]).map(a=>`<li>${a}</li>`).join("")}</ul>`;
+
+/* 📊 SKILLS CHART */
+const ctx1=document.getElementById('skillsChart').getContext('2d');
+if(skillsChartInstance)skillsChartInstance.destroy();
+skillsChartInstance=new Chart(ctx1,{
+type:'bar',
+data:{labels:Object.keys(result.skill_counts),
+datasets:[{label:'Skill Count',data:Object.values(result.skill_counts)}]},
+options:{scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
+});
+
+/* 🎯 CAREER CHART */
+const ctx2=document.getElementById('careerChart').getContext('2d');
+if(careerChartInstance)careerChartInstance.destroy();
+careerChartInstance=new Chart(ctx2,{
+type:'bar',
+data:{labels:Object.keys(result.career_scores),
+datasets:[{label:'Career Match %',data:Object.values(result.career_scores)}]},
+options:{scales:{y:{beginAtZero:true,min:0,max:100}}}
+});
+
+}else{
+alert("Error: "+result.error);
+}
+};
+
+/* 📥 PDF DOWNLOAD */
+document.getElementById('downloadBtn').onclick=()=>{
+const element=document.getElementById('results');
+const btn=document.getElementById('downloadBtn');
+
+btn.style.display='none';
+element.classList.add('pdf-export-mode');
+
+html2pdf().set({
+margin:[15,15],
+filename:'Career_Analysis_Report.pdf',
+image:{type:'jpeg',quality:0.98},
+html2canvas:{scale:2,useCORS:true},
+jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+}).from(element).save().then(()=>{
+btn.style.display='block';
+element.classList.remove('pdf-export-mode');
+});
+};
+</script>
+</body>
+</html>
